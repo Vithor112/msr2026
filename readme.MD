@@ -1,3 +1,4 @@
+[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/efnyxSeB)
 O trabalho final da disciplina é a escrita de um artigo para o Mining Challenge do MSR 2026. O envio para o congresso não é obrigatório, mas a entrega no formato da conferência sim
 
 [Mining Challenge Call for Papers 2026] (https://2026.msrconf.org/track/msr-2026-mining-challenge)
