@@ -52,12 +52,12 @@
                         <p id="total-rejected" class="text-4xl font-bold text-gray-900 mt-2">-</p>
                     </div>
                     <div class="metric-card">
-                        <h3 class="text-lg font-semibold text-gray-500">Rejected w/o Human Comment</h3>
-                        <p id="rejected-no-comment" class="text-4xl font-bold text-gray-900 mt-2">-</p>
+                        <h3 class="text-lg font-semibold text-gray-500">Rejected with Human Comment/Review</h3>
+                        <p id="rejected-with-comment" class="text-4xl font-bold text-gray-900 mt-2">-</p>
                     </div>
                     <div class="metric-card">
-                        <h3 class="text-lg font-semibold text-gray-500">Rejected w/o Human Review</h3>
-                        <p id="rejected-no-review" class="text-4xl font-bold text-gray-900 mt-2">-</p>
+                        <h3 class="text-lg font-semibold text-gray-500">Rejected with Human Review</h3>
+                        <p id="rejected-with-review" class="text-4xl font-bold text-gray-900 mt-2">-</p>
                     </div>
                 </div>
             </div>
@@ -78,7 +78,7 @@
             <div class="mt-12">
                  <h2 class="text-3xl font-bold mb-6 text-center text-gray-900">Sampled PR Rejection Analysis</h2>
                  <div id="pr-details-list" class="space-y-6">
-                    <!-- PR cards will be inserted here by D3 -->
+                     <!-- PR cards will be inserted here by D3 -->
                  </div>
             </div>
         </div>
@@ -123,8 +123,8 @@
         function displayMetrics(metrics) {
             if (!metrics) return;
             document.getElementById('total-rejected').textContent = metrics.total_rejected?.toLocaleString() || 'N/A';
-            document.getElementById('rejected-no-comment').textContent = metrics.rejected_without_human_interaction?.toLocaleString() || 'N/A';
-            document.getElementById('rejected-no-review').textContent = metrics.rejected_without_human_review?.toLocaleString() || 'N/A';
+            document.getElementById('rejected-with-comment').textContent = metrics.rejected_with_human_interaction?.toLocaleString() || 'N/A';
+            document.getElementById('rejected-with-review').textContent = metrics.rejected_with_human_review?.toLocaleString() || 'N/A';
         }
         
         function populatePrDetails(prData) {
@@ -295,4 +295,3 @@
     </script>
 </body>
 </html>
-

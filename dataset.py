@@ -97,10 +97,15 @@ def main():
         if not human_reviews:
             rejected_without_human_review += 1
     
+    # --- Inverted Metric Calculation ---
+    total_rejected = len(rejected_pr_ids)
+    rejected_with_human_interaction = total_rejected - rejected_without_human_interaction
+    rejected_with_human_review = total_rejected - rejected_without_human_review
+
     print("\n--- Rejection Metrics ---")
-    print(f"Total Rejected PRs: {len(rejected_pr_ids)}")
-    print(f"PRs rejected without any human comments or reviews: {rejected_without_human_interaction}")
-    print(f"PRs rejected without any human reviews: {rejected_without_human_review}")
+    print(f"Total Rejected PRs: {total_rejected}")
+    print(f"PRs rejected WITH human comments or reviews: {rejected_with_human_interaction} ({rejected_with_human_interaction / total_rejected:.2%})")
+    print(f"PRs rejected WITH human reviews: {rejected_with_human_review} ({rejected_with_human_review / total_rejected:.2%})")
     print("-----------------------\n")
 
     print(f"Found {len(candidate_pr_ids_for_sampling)} PRs with human feedback for sampling.")
@@ -154,9 +159,9 @@ def main():
         "repo_chart_data": repo_chart_data,
         "rejected_prs_details": rejected_prs_with_details,
         "metrics": {
-            "total_rejected": len(rejected_pr_ids),
-            "rejected_without_human_interaction": rejected_without_human_interaction,
-            "rejected_without_human_review": rejected_without_human_review
+            "total_rejected": total_rejected,
+            "rejected_with_human_interaction": rejected_with_human_interaction,
+            "rejected_with_human_review": rejected_with_human_review
         }
     }
 
@@ -168,4 +173,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
