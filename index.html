@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis of Rejected AI Agent PRs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        .chart-container, .metric-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .word-cloud text {
+            cursor: pointer;
+            transition: fill 0.2s;
+        }
+         .word-cloud text:hover {
+            fill: #3b82f6;
+        }
+    </style>
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-gray-900">Analysis of Rejected AI Agent Pull Requests</h1>
+            <p class="text-lg text-gray-600 mt-2">Visualizing why autonomous agent contributions are rejected in public Git repositories.</p>
+        </header>
+
+        <div id="loading" class="text-center text-lg text-gray-600">
+            <p>Loading analysis data...</p>
+        </div>
+        
+        <div id="dashboard" class="hidden">
+            <!-- Key Metrics Section -->
+            <div class="mb-10">
+                <h2 class="text-3xl font-bold mb-6 text-center text-gray-900">Key Metrics</h2>
+                <div id="metrics" class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                    <div class="metric-card">
+                        <h3 class="text-lg font-semibold text-gray-500">Total Rejected PRs</h3>
+                        <p id="total-rejected" class="text-4xl font-bold text-gray-900 mt-2">-</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="text-lg font-semibold text-gray-500">Rejected w/o Human Comment</h3>
+                        <p id="rejected-no-comment" class="text-4xl font-bold text-gray-900 mt-2">-</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3 class="text-lg font-semibold text-gray-500">Rejected w/o Human Review</h3>
+                        <p id="rejected-no-review" class="text-4xl font-bold text-gray-900 mt-2">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visualizations Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
+                <div class="lg:col-span-3 chart-container">
+                    <h2 class="text-xl font-semibold mb-4 text-center">Top Repositories by Rejected PRs</h2>
+                    <div id="repo-chart" class="w-full h-96"></div>
+                </div>
+                <div class="lg:col-span-2 chart-container">
+                    <h2 class="text-xl font-semibold mb-4 text-center">Common Words in Rejection Comments</h2>
+                    <div id="word-cloud" class="w-full h-96 word-cloud"></div>
+                </div>
+            </div>
+
+            <!-- Full PR Details List -->
+            <div class="mt-12">
+                 <h2 class="text-3xl font-bold mb-6 text-center text-gray-900">Sampled PR Rejection Analysis</h2>
+                 <div id="pr-details-list" class="space-y-6">
+                    <!-- PR cards will be inserted here by D3 -->
+                 </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('pr_analysis_data.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok. Make sure the JSON file is present.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('dashboard').classList.remove('hidden');
+                    
+                    displayMetrics(data.metrics);
+                    createRepoChart(data.repo_chart_data);
+                    createWordCloud(data.word_cloud_data);
+                    populatePrDetails(data.rejected_prs_details);
+                })
+                .catch(error => {
+                    const loadingEl = document.getElementById('loading');
+                    let errorMessage = `<p class="text-red-600 font-semibold">Error: Could not load data.</p><p class="text-gray-500 mt-2">${error.message}</p>`;
+                    if (window.location.protocol === 'file:') {
+                        errorMessage += `
+                            <div class="mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md text-left">
+                                <p class="font-bold">Developer Tip:</p>
+                                <p>You need to serve this page from a local web server to load the JSON data.</p>
+                                <p class="mt-2">In your terminal, navigate to this directory and run:</p>
+                                <code class="block bg-gray-200 text-gray-800 rounded px-2 py-1 my-2 font-mono text-sm">python -m http.server</code>
+                                <p class="mt-1">Then, open <a href="http://localhost:8000" target="_blank" class="underline text-blue-600">http://localhost:8000</a> in your browser.</p>
+                            </div>`;
+                    }
+                    loadingEl.innerHTML = errorMessage;
+                    console.error('Error fetching data:', error);
+                });
+        });
+
+        function displayMetrics(metrics) {
+            if (!metrics) return;
+            document.getElementById('total-rejected').textContent = metrics.total_rejected?.toLocaleString() || 'N/A';
+            document.getElementById('rejected-no-comment').textContent = metrics.rejected_without_human_interaction?.toLocaleString() || 'N/A';
+            document.getElementById('rejected-no-review').textContent = metrics.rejected_without_human_review?.toLocaleString() || 'N/A';
+        }
+        
+        function populatePrDetails(prData) {
+            const container = d3.select("#pr-details-list");
+
+            const prCards = container.selectAll("div.pr-card")
+                .data(prData)
+                .enter()
+                .append("div")
+                .attr("class", "pr-card bg-white rounded-lg shadow-md p-6 transition-all duration-300");
+
+            const header = prCards.append("div")
+                .attr("class", "flex justify-between items-start cursor-pointer")
+                .on("click", function (event, d) {
+                    const button = d3.select(this).select("button");
+                    const content = d3.select(this.parentNode).select(".details-content");
+                    const isHidden = content.classed("hidden");
+                    
+                    content.classed("hidden", !isHidden);
+                    button.text(isHidden ? "Hide Details" : "Show Details");
+                });
+
+            const headerInfo = header.append("div");
+            
+            headerInfo.append("h3")
+                .attr("class", "text-lg font-bold text-gray-900")
+                .text(d => d.pr_title);
+                
+            headerInfo.append("p")
+                .attr("class", "text-sm text-gray-500 mt-1")
+                .html(d => `in <a href="${d.repo_url}" target="_blank" class="text-blue-600 hover:underline">${d.repo_name}</a> by Agent: <span class="font-semibold text-gray-700">${d.agent || 'N/A'}</span>`);
+
+            header.append("button")
+                .attr("class", "details-toggle bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition duration-300 whitespace-nowrap")
+                .text("Show Details");
+
+            const detailsContent = prCards.append("div")
+                .attr("class", "details-content hidden mt-4 border-t pt-4");
+
+            detailsContent.append("h4")
+                .attr("class", "text-md font-semibold mb-2 text-gray-800")
+                .text("Pull Request Body");
+                
+            detailsContent.append("div")
+                .attr("class", "text-sm text-gray-800 p-4 bg-gray-50 rounded-md mb-6")
+                .append("pre")
+                .style("white-space", "pre-wrap")
+                .style("word-break", "break-word")
+                .style("font-family", "monospace")
+                .text(d => d.pr_body || "No PR body provided.");
+
+            detailsContent.append("h4")
+                .attr("class", "text-md font-semibold mb-3 text-gray-800")
+                .text("Comment History");
+
+            const commentsContainer = detailsContent.append("div").attr("class", "space-y-4");
+
+            commentsContainer.selectAll("div.comment")
+                .data(d => d.comments)
+                .enter()
+                .append("div")
+                .attr("class", "comment flex items-start space-x-3")
+                .html(c => {
+                    const author = c.author || 'Unknown';
+                    const isBot = author.toLowerCase().includes('[bot]') || author.toLowerCase() === 'copilot';
+                    const initial = author ? author.substring(0, 2).toUpperCase() : '??';
+                    const body = c.body ? c.body.replace(/</g, "&lt;").replace(/>/g, "&gt;") : '';
+                    const authorClass = isBot ? 'text-purple-600 font-semibold' : 'text-gray-800 font-semibold';
+                    const initialBg = isBot ? 'bg-purple-200' : 'bg-gray-300';
+                    const initialColor = isBot ? 'text-purple-700' : 'text-gray-600';
+
+                    return `
+                        <div class="flex-shrink-0 h-8 w-8 rounded-full ${initialBg} flex items-center justify-center font-bold ${initialColor} text-sm" title="${author}">
+                            ${initial}
+                        </div>
+                        <div class="flex-1 bg-gray-100 rounded-lg p-3">
+                            <p class="text-sm ${authorClass}">${author} ${isBot ? '(Bot)' : ''}</p>
+                            <div class="text-gray-700 mt-1 text-sm">
+                                <pre style="white-space: pre-wrap; word-break: break-word; font-family: inherit;">${body || ''}</pre>
+                            </div>
+                        </div>
+                    `;
+                });
+        }
+
+        function createRepoChart(data) {
+            const container = d3.select("#repo-chart");
+            if (!container.node() || data.length === 0) return;
+            container.html("");
+            const margin = { top: 20, right: 30, bottom: 120, left: 60 };
+            const width = container.node().getBoundingClientRect().width - margin.left - margin.right;
+            const height = 384 - margin.top - margin.bottom;
+
+            const svg = container.append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleBand()
+                .range([0, width])
+                .domain(data.map(d => d.repo))
+                .padding(0.2);
+
+            svg.append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x))
+                .selectAll("text")
+                .attr("transform", "translate(-10,0)rotate(-45)")
+                .style("text-anchor", "end");
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            svg.selectAll("mybar")
+                .data(data)
+                .enter()
+                .append("rect")
+                .attr("x", d => x(d.repo))
+                .attr("y", d => y(d.count))
+                .attr("width", x.bandwidth())
+                .attr("height", d => height - y(d.count))
+                .attr("fill", "#60a5fa");
+        }
+
+        function createWordCloud(words) {
+            const container = d3.select("#word-cloud");
+            if (!container.node() || words.length === 0) return;
+            container.html("");
+            const width = container.node().getBoundingClientRect().width;
+            const height = 384;
+
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(words.map(d => ({ text: d.text, size: d.size * 5 + 10 })))
+                .padding(5)
+                .rotate(() => 0)
+                .font("Inter")
+                .fontSize(d => d.size)
+                .on("end", draw);
+
+            layout.start();
+
+            function draw(words) {
+                const svg = container.append("svg")
+                    .attr("width", layout.size()[0])
+                    .attr("height", layout.size()[1])
+                    .append("g")
+                    .attr("transform", `translate(${layout.size()[0] / 2},${layout.size()[1] / 2})`);
+                
+                const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+                svg.selectAll("text")
+                    .data(words)
+                    .enter().append("text")
+                    .style("font-size", d => `${d.size}px`)
+                    .style("font-family", "Inter")
+                    .style("fill", (d, i) => color(i))
+                    .attr("text-anchor", "middle")
+                    .attr("transform", d => `translate(${[d.x, d.y]})rotate(${d.rotate})`)
+                    .text(d => d.text);
+            }
+        }
+    </script>
+</body>
+</html>
+
