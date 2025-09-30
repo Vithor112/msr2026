@@ -3,11 +3,16 @@ import re
 import random
 from collections import Counter
 from datasets import load_dataset
+import http.server
+import socketserver
+import webbrowser
+import os
 
 # --- Configuration ---
 REPO_ID = "hao-li/AIDev"
 OUTPUT_FILE = "pr_analysis_data.json"
 PR_SAMPLE_SIZE = 100
+PORT = 8000
 # Common English stop words
 STOP_WORDS = set([
     "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
@@ -45,8 +50,8 @@ def is_human_commenter(username):
     username_lower = username.lower()
     return 'bot' not in username_lower and 'assistant' not in username_lower and 'github' not in username_lower and username_lower != 'copilot'
 
-def main():
-    """Main function to process datasets and generate analysis file."""
+def generate_analysis_data():
+    """Processes datasets and generates the analysis JSON file."""
     print("Loading datasets...")
     try:
         pr_dataset = load_dataset(REPO_ID, 'all_pull_request', trust_remote_code=True)
@@ -97,7 +102,6 @@ def main():
         if not human_reviews:
             rejected_without_human_review += 1
     
-    # --- Inverted Metric Calculation ---
     total_rejected = len(rejected_pr_ids)
     rejected_with_human_interaction = total_rejected - rejected_without_human_interaction
     rejected_with_human_review = total_rejected - rejected_without_human_review
@@ -169,7 +173,32 @@ def main():
     with open(OUTPUT_FILE, 'w') as f:
         json.dump(output_data, f, indent=4)
     
-    print("Processing complete!")
+    print("Analysis data generated successfully!")
+
+def main():
+    """Runs the analysis and starts a web server to display the results."""
+    # Ensure we are in the script's directory so file paths are correct
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    os.chdir(script_dir)
+
+    # First, generate the data file
+    generate_analysis_data()
+
+    # Now, serve the directory
+    Handler = http.server.SimpleHTTPRequestHandler
+    with socketserver.TCPServer(("", PORT), Handler) as httpd:
+        print(f"\n--- Web Dashboard ---")
+        dashboard_url = f"http://localhost:{PORT}/index.html"
+        print(f"Serving dashboard at: {dashboard_url}")
+        print("Opening dashboard in your default web browser...")
+        webbrowser.open_new_tab(dashboard_url)
+        print("Press Ctrl+C to stop the server.")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nStopping server...")
+            httpd.shutdown()
 
 if __name__ == "__main__":
     main()
+
