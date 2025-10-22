@@ -1,7 +1,7 @@
 Nexts steps:
-- Measure and Classify PRs  (duplicate, fix, large, link to other PR)
-- Measure PRs by language and classify it by language
-- Include all prs with comments in the sample analysis and indicate if they are opened, closed, or merged
-- Try to get a repository before and after the PR
-- Decide which language and static code analyzer to use 
-
+- Apply ESLINT to js
+- Apply Eslint to ts
+- Apply audit to js
+- Apply audit to ts
+- Complexity and Cognitive complexity to ts and js
+- Evaluate the data 

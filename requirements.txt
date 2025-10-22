@@ -1,1 +1,6 @@
 datasets=4.1.1
+locstats=1.0.10pylint
+pylint=4.0.2
+flake8=7.3.0
+flake8-cognitive-complexity=0.1.0
+bandit=1.8.6
