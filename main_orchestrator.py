@@ -8,7 +8,7 @@ from output_handler import OutputHandler
 
 ANALYZER_REGISTRY = {
     "Python": PythonAnalyzer
-}
+    }
 
 def analyze_pr_group(pr_group_df, repo_full_name, repo_language, analyzer_class, git_handler, repo_path):
     """
@@ -64,16 +64,11 @@ def analyze_pr_group(pr_group_df, repo_full_name, repo_language, analyzer_class,
             if key not in pr_group_df.columns:
                 pr_group_df[key] = pd.NA
             pr_group_df.loc[index, key] = value
-        
         counter += 1
-        if (counter > 10):
-            print("  Reached analysis limit of 10 PRs for this repository. Stopping further analysis.")
-            break
-
     print(f"\n--- Finished analysis for {repo_full_name} ---")
     print(f"Total PRs processed: {len(pr_group_df)}")
     print(f"Failed analyses (no SHAs or checkout/analysis error): {failed_analyses}")
-    return pr_group_df
+    return pr_group_df, failed_analyses
 
 def main():
     """
@@ -83,12 +78,21 @@ def main():
     - Loops through repos, clones, analyzes, and saves results
     """
 
-    github_token = os.environ.get('GITHUB_TOKEN')
 
     dataset_repo = DatasetRepository("hao-li/AIDev")
-    git_handler = GitHandler(github_token)
-    os.mkdir('output', exist_ok=True)
-    output_handler = OutputHandler('output')
+    directory_git = 'repositories'
+    if not os.path.exists(directory_git):
+        os.makedirs(directory_git)
+    git_handler = GitHandler(github_token, directory_git)
+    directory = 'output'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    output_handler = OutputHandler(directory)
+
+    processed_repos = output_handler.get_processed_repos()
+    if processed_repos:
+        print(f"Found {len(processed_repos)} already processed repositories. They will be skipped.")
+        print(f"Processed list: {processed_repos}")
 
     target_languages = list(ANALYZER_REGISTRY.keys())
     if not target_languages:
@@ -136,6 +140,10 @@ def main():
 
         repo_full_name = repo_info['full_name']
 
+        if repo_full_name in processed_repos:
+            print(f"\nSkipping '{repo_full_name}' as it appears in existing CSV files.")
+            continue
+
         print(f"\nAttempting to process first available repo for language: {lang}")
         print(f"Trying repo: {repo_full_name} (Repo ID: {repo_id})")
 
@@ -146,7 +154,7 @@ def main():
 
             analyzer_class = ANALYZER_REGISTRY[lang]
             pr_group_df = grouped_prs.get_group(repo_id)
-            results_df = analyze_pr_group(
+            results_df, failed_analy = analyze_pr_group(
                 pr_group_df.copy(),
                 repo_full_name,
                 lang,
@@ -155,7 +163,12 @@ def main():
                 repo_path
             )
 
+            if (len(results_df) - failed_analy) == 0:
+                print(f"All PR analyses failed for '{repo_full_name}'. Skipping saving results.")
+                continue
+
             results_df['repo_language'] = lang
+            results_df['repo_full_name'] = repo_full_name
 
             repo_name_safe = repo_full_name.replace('/', '_')
             output_file = f"{repo_name_safe}_analysis_results.csv"

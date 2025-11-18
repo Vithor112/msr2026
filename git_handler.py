@@ -7,7 +7,7 @@ class GitHandler:
     Handles all Git operations, such as cloning, checking out commits,
     and interacting with the GitHub API.
     """
-    def __init__(self, github_token=None):
+    def __init__(self, github_token=None, directory="."):
         """
         Initializes the GitHandler.
 
@@ -16,6 +16,7 @@ class GitHandler:
                                           rate limits.
         """
         self.github_token = github_token
+        self.directory = directory
         self.headers = {}
         if self.github_token:
             self.headers['Authorization'] = f"token {self.github_token}"
@@ -69,6 +70,7 @@ class GitHandler:
         repo_name = repo_full_name.split('/')[-1]
 
         print(f"Verifying accessibility of '{repo_full_name}'...")
+        original_dir = os.getcwd()
         try:
             env = os.environ.copy()
             env['GIT_TERMINAL_PROMPT'] = '0'
@@ -82,21 +84,24 @@ class GitHandler:
             print(f"Failed to access repository '{repo_full_name}'. It may be private, deleted, or renamed.")
             print(f"Stderr: {e.stderr.strip()}")
             return None
-
-        if not os.path.exists(repo_name):
-            print(f"Cloning '{repo_full_name}' into './{repo_name}'...")
+        path = f"{self.directory}/{repo_name}"
+        if not os.path.exists(path):
+            print(f"Cloning '{repo_full_name}' into './{path}'...")
             try:
                 env = os.environ.copy()
                 env['GIT_TERMINAL_PROMPT'] = '0'
+                os.chdir(self.directory)
                 subprocess.run(['git', 'clone', clone_url], check=True, capture_output=True, text=True, env=env)
                 print("Repository cloned successfully!")
             except subprocess.CalledProcessError as e:
                 print(f"Failed to clone repository: {e.stderr}")
                 return None
+            finally:
+                os.chdir(original_dir)
         else:
             print(f"Repository '{repo_name}' already exists. Skipping clone.")
         
-        return repo_name
+        return path
 
     def checkout_and_clean(self, repo_path, commit_sha):
         """
@@ -112,6 +117,7 @@ class GitHandler:
         original_dir = os.getcwd()
         try:
             os.chdir(repo_path)
+            subprocess.run(['git', 'fetch', 'origin', commit_sha], check=True, capture_output=True, text=True)
             subprocess.run(['git', 'checkout', commit_sha, '--force'], check=True, capture_output=True, text=True)
             subprocess.run(['git', 'clean', '-fd'], check=True, capture_output=True, text=True)
             return True
