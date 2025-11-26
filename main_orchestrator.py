@@ -5,6 +5,7 @@ from dataset_repository import DatasetRepository
 from git_handler import GitHandler
 from python_analyzer import PythonAnalyzer
 from output_handler import OutputHandler
+import datetime
 
 ANALYZER_REGISTRY = {
     "Python": PythonAnalyzer
@@ -34,15 +35,19 @@ def analyze_pr_group(pr_group_df, repo_full_name, repo_language, analyzer_class,
     analyzer = analyzer_class(repo_path, git_handler)
 
     counter = 0
+    total_prs = len(pr_group_df)  
 
     if 'base_sha' not in pr_group_df.columns:
         pr_group_df['base_sha'] = pd.NA
     if 'head_sha' not in pr_group_df.columns:
         pr_group_df['head_sha'] = pd.NA
-
-    for index, pr_row in pr_group_df.iterrows():
+        
+    for i, (index, pr_row) in enumerate(pr_group_df.iterrows()):
         pr_number = pr_row['number']
-        print(f"\nProcessing PR #{pr_number}...")
+        
+        remaining = total_prs - (i + 1)
+        print('Start time: ' + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print(f"\nProcessing PR #{pr_number}... (Progress: {i+1}/{total_prs} | Remaining: {remaining})")
 
         base_sha, head_sha = git_handler.get_pr_base_and_head(repo_full_name, pr_number)
         if not (base_sha and head_sha):
